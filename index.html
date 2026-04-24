@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Habits</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#ECEAE7"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Habits"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #ECEAE7;
+  --dot: #1C1C1A;
+  --dot-done: #7A7975;
+  --dot-future: #C5C3BB;
+  --ring: #ECEAE7;
+  --ring2: #1C1C1A;
+  --text-big: #1C1C1A;
+  --text-main: #1C1C1A;
+  --text-muted: #9A9890;
+  --text-hint: #C5C3BB;
+  --surface: #E0DED9;
+  --surface2: #D5D3CE;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  touch-action: none;
+}
+
+/* ─── SCREENS ─── */
+.screen { display: none; width: 100%; height: 100vh; overflow-y: auto; }
+.screen.active { display: block; }
+
+/* ─── HABIT VIEWPORT ─── */
+#habitViewport {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* sliding strip that holds all habit pages */
+#habitStrip {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+}
+
+.habit-page {
+  min-width: 100vw;
+  width: 100vw;
+  height: 100%;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.habit-inner {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 52px 28px 48px;
+}
+
+/* Header */
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.habit-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.big-day {
+  font-size: clamp(76px, 22vw, 112px);
+  font-weight: 600;
+  line-height: 0.88;
+  letter-spacing: -4px;
+  color: var(--text-big);
+  margin-bottom: 8px;
+}
+
+.month-name {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-main);
+  margin-bottom: 1px;
+}
+
+.year-row { display: flex; gap: 10px; align-items: center; }
+.year-text { font-size: 11.5px; color: var(--text-muted); }
+.dow-text  { font-size: 11.5px; font-weight: 500; color: var(--text-main); }
+
+/* Top icons */
+.top-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 28px;
+}
+
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.14s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface2); }
+.icon-btn:active { transform: scale(0.9); }
+
+/* Month nav */
+.nav { display: flex; gap: 16px; margin-bottom: 22px; }
+.nav-btn {
+  background: none; border: none;
+  cursor: pointer; font-size: 22px;
+  color: var(--text-muted);
+  padding: 1px 4px; border-radius: 6px; line-height: 1;
+  transition: color 0.14s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-btn:hover { color: var(--text-main); }
+
+/* Calendar */
+.grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 10px;
+}
+.grid-header span {
+  text-align: center;
+  font-size: 9.5px; font-weight: 500;
+  color: var(--text-muted); letter-spacing: 0.5px;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+
+.day-dot {
+  width: 100%; aspect-ratio: 1; border-radius: 50%;
+  cursor: pointer; background: var(--dot);
+  transition: transform 0.12s ease;
+}
+.day-dot:active { transform: scale(0.88); }
+.day-dot.future {
+  background: transparent;
+  border: 1.5px solid var(--dot-future);
+  cursor: default;
+}
+.day-dot.future:active { transform: none; }
+.day-dot.done { background: var(--dot-done); }
+.day-dot.today {
+  background: var(--dot);
+  box-shadow: 0 0 0 2.5px var(--ring), 0 0 0 4.5px var(--ring2);
+}
+.day-dot.selected:not(.today) {
+  box-shadow: 0 0 0 2px var(--ring), 0 0 0 3.5px var(--dot-done);
+}
+
+/* Habit dots indicator */
+.habit-dots-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 30px;
+}
+.h-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--dot-future);
+  transition: background 0.2s;
+}
+.h-dot.active { background: var(--dot); }
+
+.footer-text {
+  text-align: center;
+  font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-hint);
+  margin-top: 24px;
+}
+
+/* ─── STATS SCREEN ─── */
+.stats-wrap {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 52px 28px 48px;
+}
+.stats-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 38px;
+}
+.stats-title {
+  font-size: clamp(34px,10vw,48px);
+  font-weight: 600; letter-spacing: -2px;
+  color: var(--text-big); line-height: 1;
+}
+.back-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface); border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.14s;
+  -webkit-tap-highlight-color: transparent;
+}
+.back-btn:hover { background: var(--surface2); }
+
+.stat-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 18px 18px 14px;
+  margin-bottom: 10px;
+}
+.stat-card-top {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.stat-habit-name { font-size: 14px; font-weight: 500; color: var(--text-main); }
+.stat-actions { display: flex; gap: 4px; align-items: center; }
+.stat-delete-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-hint); font-size: 13px;
+  padding: 2px 4px; border-radius: 4px;
+  transition: color 0.14s;
+  font-family: 'DM Sans', sans-serif; line-height: 1;
+}
+.stat-delete-btn:hover { color: #b03020; }
+.stat-bar-bg {
+  height: 3px; background: var(--surface2);
+  border-radius: 2px; overflow: hidden; margin-bottom: 12px;
+}
+.stat-bar-fill {
+  height: 100%; background: var(--dot);
+  border-radius: 2px; transition: width 0.4s ease;
+}
+.stat-numbers { display: flex; gap: 22px; }
+.stat-num { font-size: 22px; font-weight: 600; color: var(--text-big); letter-spacing: -0.5px; line-height: 1; }
+.stat-num-label { font-size: 9.5px; color: var(--text-muted); letter-spacing: 1.2px; text-transform: uppercase; margin-top: 3px; }
+.stats-empty { text-align: center; color: var(--text-hint); font-size: 13px; margin-top: 80px; }
+.stats-footer { text-align: center; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-hint); margin-top: 44px; }
+
+/* Reset button in stats */
+.stat-reset-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px;
+  background: none;
+  border: 1.5px solid var(--surface2);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: border-color 0.14s, color 0.14s;
+  -webkit-tap-highlight-color: transparent;
+}
+.stat-reset-btn:hover { border-color: #b03020; color: #b03020; }
+
+/* ─── ADD / EDIT MODAL ─── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(20,20,18,0.4); z-index: 200;
+  align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  width: 100%; max-width: 420px;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 28px 28px 42px;
+  animation: sheetUp 0.22s ease both;
+}
+@keyframes sheetUp {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.modal-title { font-size: 11px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 18px; }
+.modal-input {
+  width: 100%; background: var(--surface); border: none; outline: none;
+  border-radius: 12px; padding: 14px 16px;
+  font-size: 15px; font-family: 'DM Sans', sans-serif;
+  color: var(--text-main); margin-bottom: 12px;
+}
+.modal-input::placeholder { color: var(--text-hint); }
+.modal-add-btn {
+  width: 100%; padding: 14px; background: var(--dot); color: var(--bg);
+  border: none; border-radius: 12px; font-size: 14px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.14s;
+}
+.modal-add-btn:active { opacity: 0.75; }
+.modal-cancel {
+  width: 100%; padding: 11px; background: none; border: none;
+  color: var(--text-muted); font-size: 13px;
+  font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- HABIT VIEWPORT -->
+<div id="habitViewport" class="screen active">
+  <div id="habitStrip"></div>
+</div>
+
+<!-- STATS SCREEN -->
+<div class="screen" id="screenStats">
+  <div class="stats-wrap">
+    <div class="stats-header">
+      <div class="stats-title">Stats</div>
+      <button class="back-btn" id="backBtn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1C1C1A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="10,3 4,8 10,13"/>
+        </svg>
+      </button>
+    </div>
+    <div id="statsContent"></div>
+    <div class="stats-footer">less but better</div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-sheet">
+    <div class="modal-title">New habit</div>
+    <input class="modal-input" id="habitInput" type="text" placeholder="e.g. Meditate 10 min" maxlength="30"/>
+    <button class="modal-add-btn" id="confirmAdd">Add habit</button>
+    <button class="modal-cancel" id="cancelAdd">Cancel</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Edit habit</div>
+    <input class="modal-input" id="editInput" type="text" placeholder="Habit name" maxlength="30"/>
+    <button class="modal-add-btn" id="confirmEdit">Save</button>
+    <button class="modal-cancel" id="cancelEdit">Cancel</button>
+  </div>
+</div>
+
+<script>
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const today = new Date(); today.setHours(0,0,0,0);
+
+function uid()     { return Math.random().toString(36).slice(2,9); }
+function dateKey(d){ return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+
+// State
+let habits = [
+  { id: uid(), name: 'Morning routine' },
+  { id: uid(), name: 'Exercise' },
+  { id: uid(), name: 'Read 30 min' },
+];
+let completed = {};
+habits.forEach(h => { completed[h.id] = {}; });
+
+// Each habit has its own month view
+let habitMonths = {}; // {id: {year, month, selected}}
+
+function initHabitMonth(id) {
+  if (!habitMonths[id]) {
+    habitMonths[id] = {
+      year: today.getFullYear(),
+      month: today.getMonth(),
+      selected: new Date(today)
+    };
+  }
+}
+
+let currentHabitIndex = 0;
+
+// ─── BUILD STRIP ───
+function buildStrip() {
+  const strip = document.getElementById('habitStrip');
+  strip.innerHTML = '';
+
+  habits.forEach((h, idx) => {
+    initHabitMonth(h.id);
+    const page = document.createElement('div');
+    page.className = 'habit-page';
+    page.id = `page-${h.id}`;
+    page.innerHTML = buildPageHTML(h, idx);
+    strip.appendChild(page);
+  });
+
+  // Position strip
+  strip.style.transition = 'none';
+  strip.style.transform = `translateX(-${currentHabitIndex * 100}vw)`;
+
+  // Bind events for each page
+  habits.forEach((h, idx) => {
+    bindPageEvents(h, idx);
+  });
+
+  renderAllPages();
+  renderDots();
+}
+
+function buildPageHTML(h, idx) {
+  return `
+    <div class="habit-inner">
+      <div class="header-row">
+        <div>
+          <div class="habit-label" id="label-${h.id}">${h.name}</div>
+          <div class="big-day" id="bigDay-${h.id}">1</div>
+          <div class="month-name" id="monthName-${h.id}">January</div>
+          <div class="year-row">
+            <span class="year-text" id="yearText-${h.id}">2026</span>
+            <span class="dow-text"  id="dowText-${h.id}">Mon</span>
+          </div>
+        </div>
+        <div class="top-icons">
+          <button class="icon-btn stats-btn-page" data-id="${h.id}" title="Stats">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1C1C1A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="9" width="3" height="6" rx="0.7"/>
+              <rect x="6.5" y="5" width="3" height="10" rx="0.7"/>
+              <rect x="12" y="1" width="3" height="14" rx="0.7"/>
+            </svg>
+          </button>
+          <button class="icon-btn edit-btn-page" data-id="${h.id}" title="Edit habit">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1C1C1A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5z"/>
+            </svg>
+          </button>
+          <button class="icon-btn add-btn-page" title="Add habit">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1C1C1A" stroke-width="1.7" stroke-linecap="round">
+              <line x1="8" y1="2" x2="8" y2="14"/>
+              <line x1="2" y1="8" x2="14" y2="8"/>
+            </svg>
+          </button>
+          <button class="icon-btn del-btn-page" data-id="${h.id}" title="Delete habit">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1C1C1A" stroke-width="1.6" stroke-linecap="round">
+              <line x1="3" y1="3" x2="13" y2="13"/>
+              <line x1="13" y1="3" x2="3" y2="13"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="nav-btn prev-btn" data-id="${h.id}">&#8249;</button>
+        <button class="nav-btn next-btn" data-id="${h.id}">&#8250;</button>
+      </div>
+
+      <div class="grid-header">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+      </div>
+      <div class="days-grid" id="grid-${h.id}"></div>
+
+      <div class="habit-dots-row" id="dots-${h.id}"></div>
+      <div class="footer-text">less but better</div>
+    </div>`;
+}
+
+function bindPageEvents(h, idx) {
+  const page = document.getElementById(`page-${h.id}`);
+
+  // Month nav
+  page.querySelector('.prev-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const m = habitMonths[h.id];
+    m.month--;
+    if (m.month < 0) { m.month = 11; m.year--; }
+    clampSelected(h.id);
+    renderPage(h.id);
+  });
+  page.querySelector('.next-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const m = habitMonths[h.id];
+    let nm = m.month+1, ny = m.year;
+    if (nm > 11) { nm = 0; ny++; }
+    if (new Date(ny, nm, 1) > today) return;
+    m.month = nm; m.year = ny;
+    clampSelected(h.id);
+    renderPage(h.id);
+  });
+
+  // Stats btn
+  page.querySelector('.stats-btn-page').addEventListener('click', e => {
+    e.stopPropagation();
+    openStats();
+  });
+
+  // Add btn
+  page.querySelector('.add-btn-page').addEventListener('click', e => {
+    e.stopPropagation();
+    openAddModal();
+  });
+
+  // Edit btn
+  page.querySelector('.edit-btn-page').addEventListener('click', e => {
+    e.stopPropagation();
+    openEditModal(h.id);
+  });
+
+  // Delete btn
+  page.querySelector('.del-btn-page').addEventListener('click', e => {
+    e.stopPropagation();
+    if (habits.length === 1) { alert('You need at least one habit.'); return; }
+    if (!confirm(`Delete "${h.name}"?`)) return;
+    const i = habits.findIndex(x => x.id === h.id);
+    habits.splice(i, 1);
+    delete completed[h.id];
+    delete habitMonths[h.id];
+    if (currentHabitIndex >= habits.length) currentHabitIndex = habits.length - 1;
+    buildStrip();
+    goTo(currentHabitIndex, false);
+  });
+}
+
+function clampSelected(id) {
+  const m = habitMonths[id];
+  const first = new Date(m.year, m.month, 1);
+  const last  = new Date(m.year, m.month+1, 0);
+  if (m.selected < first || m.selected > last) {
+    m.selected = new Date(Math.min(last.getTime(), today.getTime()));
+    if (m.selected.getMonth() !== m.month) m.selected = last;
+  }
+}
+
+function renderPage(id) {
+  const m = habitMonths[id];
+  const sel = m.selected;
+
+  document.getElementById(`bigDay-${id}`).textContent    = sel.getDate();
+  document.getElementById(`monthName-${id}`).textContent = MONTHS[sel.getMonth()];
+  document.getElementById(`yearText-${id}`).textContent  = sel.getFullYear();
+  document.getElementById(`dowText-${id}`).textContent   = DAYS_S[sel.getDay()];
+
+  const grid = document.getElementById(`grid-${id}`);
+  grid.innerHTML = '';
+
+  let startDow = new Date(m.year, m.month, 1).getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;
+  const daysInMonth = new Date(m.year, m.month+1, 0).getDate();
+
+  for (let i = 0; i < startDow; i++) {
+    grid.appendChild(Object.assign(document.createElement('div'), {className:'day-cell'}));
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const td = new Date(m.year, m.month, d);
+    td.setHours(0,0,0,0);
+    const isToday    = td.getTime() === today.getTime();
+    const isFuture   = td > today;
+    const isSelected = td.getTime() === sel.getTime();
+    const key        = dateKey(td);
+    const isDone     = !isFuture && !!(completed[id] && completed[id][key]);
+
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+    const dot = document.createElement('div');
+    const cls = ['day-dot'];
+    if (isFuture)              cls.push('future');
+    if (isToday)               cls.push('today');
+    if (isDone && !isToday)    cls.push('done');
+    if (isSelected)            cls.push('selected');
+    dot.className = cls.join(' ');
+
+    if (!isFuture) {
+      dot.addEventListener('click', () => {
+        if (completed[id][key]) delete completed[id][key];
+        else completed[id][key] = true;
+        m.selected = new Date(m.year, m.month, d);
+        renderPage(id);
+      });
+    } else {
+      dot.addEventListener('click', () => {
+        m.selected = new Date(m.year, m.month, d);
+        renderPage(id);
+      });
+    }
+
+    cell.appendChild(dot);
+    grid.appendChild(cell);
+  }
+}
+
+function renderAllPages() {
+  habits.forEach(h => renderPage(h.id));
+}
+
+function renderDots() {
+  habits.forEach((h, idx) => {
+    const el = document.getElementById(`dots-${h.id}`);
+    if (!el) return;
+    el.innerHTML = '';
+    habits.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'h-dot' + (i === idx ? ' active' : '');
+      el.appendChild(d);
+    });
+  });
+}
+
+// ─── SWIPE BETWEEN HABITS ───
+let swipeStartX = 0, swipeStartY = 0, dragging = false, dragDelta = 0;
+
+const viewport = document.getElementById('habitViewport');
+const strip    = document.getElementById('habitStrip');
+
+function goTo(index, animate = true) {
+  if (index < 0 || index >= habits.length) return;
+  currentHabitIndex = index;
+  strip.style.transition = animate ? 'transform 0.32s cubic-bezier(0.4,0,0.2,1)' : 'none';
+  strip.style.transform  = `translateX(-${currentHabitIndex * 100}vw)`;
+  renderDots();
+}
+
+viewport.addEventListener('touchstart', e => {
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+  dragging = false; dragDelta = 0;
+  strip.style.transition = 'none';
+}, { passive: true });
+
+viewport.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - swipeStartX;
+  const dy = e.touches[0].clientY - swipeStartY;
+  if (!dragging && Math.abs(dy) > Math.abs(dx)) return;
+  dragging = true;
+  dragDelta = dx;
+  const base = currentHabitIndex * 100;
+  strip.style.transform = `translateX(calc(-${base}vw + ${dx}px))`;
+}, { passive: true });
+
+viewport.addEventListener('touchend', () => {
+  if (!dragging) return;
+  if (dragDelta < -50 && currentHabitIndex < habits.length - 1) {
+    goTo(currentHabitIndex + 1);
+  } else if (dragDelta > 50 && currentHabitIndex > 0) {
+    goTo(currentHabitIndex - 1);
+  } else {
+    goTo(currentHabitIndex);
+  }
+  dragging = false;
+});
+
+let mouseDown = false, mouseStartX = 0, mouseDelta = 0;
+viewport.addEventListener('mousedown', e => {
+  mouseDown = true; mouseStartX = e.clientX; mouseDelta = 0;
+  strip.style.transition = 'none';
+});
+viewport.addEventListener('mousemove', e => {
+  if (!mouseDown) return;
+  mouseDelta = e.clientX - mouseStartX;
+  const base = currentHabitIndex * 100;
+  strip.style.transform = `translateX(calc(-${base}vw + ${mouseDelta}px))`;
+});
+viewport.addEventListener('mouseup', () => {
+  if (!mouseDown) return;
+  mouseDown = false;
+  if (mouseDelta < -50 && currentHabitIndex < habits.length - 1) goTo(currentHabitIndex + 1);
+  else if (mouseDelta > 50 && currentHabitIndex > 0) goTo(currentHabitIndex - 1);
+  else goTo(currentHabitIndex);
+});
+viewport.addEventListener('mouseleave', () => { if (mouseDown) { mouseDown = false; goTo(currentHabitIndex); } });
+
+// ─── STATS ───
+function streak(hid) {
+  let n = 0, d = new Date(today);
+  while (completed[hid] && completed[hid][dateKey(d)]) { n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function totalDone(hid) { return Object.keys(completed[hid]||{}).length; }
+
+function openStats() {
+  renderStats();
+  document.getElementById('habitViewport').classList.remove('active');
+  document.getElementById('screenStats').classList.add('active');
+  window.scrollTo(0,0);
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  document.getElementById('screenStats').classList.remove('active');
+  document.getElementById('habitViewport').classList.add('active');
+});
+
+function renderStats() {
+  const c = document.getElementById('statsContent');
+  c.innerHTML = '';
+  if (!habits.length) { c.innerHTML = '<div class="stats-empty">No habits yet.</div>'; return; }
+
+  habits.forEach(h => {
+    const s   = streak(h.id);
+    const tot = totalDone(h.id);
+    const pct = Math.min(100, Math.round((tot/30)*100));
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.innerHTML = `
+      <div class="stat-card-top">
+        <div class="stat-habit-name">${h.name}</div>
+        <div class="stat-actions">
+          <button class="stat-delete-btn" data-id="${h.id}">✕</button>
+        </div>
+      </div>
+      <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+      <div class="stat-numbers">
+        <div><div class="stat-num">${s}</div><div class="stat-num-label">Streak</div></div>
+        <div><div class="stat-num">${tot}</div><div class="stat-num-label">Total</div></div>
+        <div><div class="stat-num">${pct}%</div><div class="stat-num-label">30-day</div></div>
+      </div>
+      <button class="stat-reset-btn" data-id="${h.id}">Reset progress</button>`;
+
+    card.querySelector('.stat-delete-btn').addEventListener('click', e => {
+      const id = e.target.dataset.id;
+      if (habits.length === 1) { alert('You need at least one habit.'); return; }
+      const idx = habits.findIndex(h => h.id === id);
+      habits.splice(idx, 1);
+      delete completed[id];
+      delete habitMonths[id];
+      if (currentHabitIndex >= habits.length) currentHabitIndex = Math.max(0, habits.length-1);
+      buildStrip();
+      renderStats();
+    });
+
+    card.querySelector('.stat-reset-btn').addEventListener('click', e => {
+      const id = e.target.dataset.id;
+      const habit = habits.find(h => h.id === id);
+      if (!confirm(`Reset all progress for "${habit.name}"?`)) return;
+      completed[id] = {};
+      renderStats();
+      renderPage(id);
+    });
+
+    c.appendChild(card);
+  });
+}
+
+// ─── ADD MODAL ───
+function openAddModal() {
+  document.getElementById('habitInput').value = '';
+  document.getElementById('addModal').classList.add('open');
+  setTimeout(() => document.getElementById('habitInput').focus(), 300);
+}
+function closeAddModal() { document.getElementById('addModal').classList.remove('open'); }
+
+document.getElementById('cancelAdd').addEventListener('click', closeAddModal);
+document.getElementById('addModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('addModal')) closeAddModal();
+});
+document.getElementById('confirmAdd').addEventListener('click', addHabit);
+document.getElementById('habitInput').addEventListener('keydown', e => { if (e.key==='Enter') addHabit(); });
+
+function addHabit() {
+  const val = document.getElementById('habitInput').value.trim();
+  if (!val) return;
+  const id = uid();
+  habits.push({ id, name: val });
+  completed[id] = {};
+  initHabitMonth(id);
+  currentHabitIndex = habits.length - 1;
+  closeAddModal();
+  buildStrip();
+  goTo(currentHabitIndex, false);
+}
+
+// ─── EDIT MODAL ───
+let editingHabitId = null;
+
+function openEditModal(id) {
+  editingHabitId = id;
+  const h = habits.find(h => h.id === id);
+  document.getElementById('editInput').value = h.name;
+  document.getElementById('editModal').classList.add('open');
+  setTimeout(() => {
+    const inp = document.getElementById('editInput');
+    inp.focus();
+    inp.select();
+  }, 300);
+}
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('open');
+  editingHabitId = null;
+}
+
+document.getElementById('cancelEdit').addEventListener('click', closeEditModal);
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModal')) closeEditModal();
+});
+document.getElementById('confirmEdit').addEventListener('click', saveEdit);
+document.getElementById('editInput').addEventListener('keydown', e => { if (e.key==='Enter') saveEdit(); });
+
+function saveEdit() {
+  const val = document.getElementById('editInput').value.trim();
+  if (!val || !editingHabitId) return;
+  const h = habits.find(h => h.id === editingHabitId);
+  h.name = val;
+  // Update label on page
+  const label = document.getElementById(`label-${editingHabitId}`);
+  if (label) label.textContent = val;
+  closeEditModal();
+}
+
+// ─── INIT ───
+buildStrip();
+
+// ─── SERVICE WORKER ───
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
