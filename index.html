@@ -183,6 +183,27 @@ html, body {
   border: 1.5px solid var(--dot-future);
   cursor: pointer;
 }
+
+/* ─── CHECK BUTTON ─── */
+.check-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--dot);
+  border: none;
+  cursor: pointer;
+  margin: 28px auto 0;
+  transition: transform 0.12s ease, opacity 0.14s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.check-btn:active { transform: scale(0.88); opacity: 0.8; }
+.check-btn.checked {
+  background: var(--dot-done);
+}
+.check-btn svg { pointer-events: none; }
 .day-dot.done { background: var(--dot-done); }
 .day-dot.today {
   background: var(--dot);
@@ -544,6 +565,11 @@ function buildPageHTML(h, idx) {
       <div class="days-grid" id="grid-${h.id}"></div>
 
       <div class="habit-dots-row" id="dots-${h.id}"></div>
+      <button class="check-btn" id="check-${h.id}" title="Mark today">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#ECEAE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4,11 9,16 18,6"/>
+        </svg>
+      </button>
       <div class="footer-text">less but better</div>
     </div>`;
 }
@@ -589,15 +615,33 @@ function bindPageEvents(h, idx) {
     openEditModal(h.id);
   });
 
+  // Check btn
+  page.querySelector('.check-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const m = habitMonths[h.id];
+    const sel = m.selected;
+    if (sel > today) return; // can't mark future
+    const key = dateKey(sel);
+    if (completed[h.id][key]) delete completed[h.id][key];
+    else completed[h.id][key] = true;
+    renderPage(h.id);
+  });
+
   // Delete btn
   page.querySelector('.del-btn-page').addEventListener('click', e => {
     e.stopPropagation();
-    if (habits.length === 1) { alert('You need at least one habit.'); return; }
     if (!confirm(`Delete "${h.name}"?`)) return;
     const i = habits.findIndex(x => x.id === h.id);
     habits.splice(i, 1);
     delete completed[h.id];
     delete habitMonths[h.id];
+    if (habits.length === 0) {
+      currentHabitIndex = 0;
+      buildStrip();
+      document.getElementById('habitViewport').classList.remove('active');
+      document.getElementById('screenEmpty').classList.add('active');
+      return;
+    }
     if (currentHabitIndex >= habits.length) currentHabitIndex = habits.length - 1;
     buildStrip();
     goTo(currentHabitIndex, false);
@@ -655,22 +699,25 @@ function renderPage(id) {
     if (isSelected)                  cls.push('selected');
     dot.className = cls.join(' ');
 
-    if (!isFuture) {
-      dot.addEventListener('click', () => {
-        if (completed[id][key]) delete completed[id][key];
-        else completed[id][key] = true;
-        m.selected = new Date(m.year, m.month, d);
-        renderPage(id);
-      });
-    } else {
-      dot.addEventListener('click', () => {
-        m.selected = new Date(m.year, m.month, d);
-        renderPage(id);
-      });
-    }
+    // all dots only select the day — check button does the toggling
+    dot.addEventListener('click', () => {
+      m.selected = new Date(m.year, m.month, d);
+      renderPage(id);
+    });
 
     cell.appendChild(dot);
     grid.appendChild(cell);
+  }
+
+  // Sync check button state
+  const checkBtn = document.getElementById(`check-${id}`);
+  if (checkBtn) {
+    const selKey = dateKey(sel);
+    const selIsFuture = sel > today;
+    const selDone = !selIsFuture && !!(completed[id] && completed[id][selKey]);
+    checkBtn.classList.toggle('checked', selDone);
+    checkBtn.style.opacity = selIsFuture ? '0.35' : '1';
+    checkBtn.style.pointerEvents = selIsFuture ? 'none' : '';
   }
 }
 
