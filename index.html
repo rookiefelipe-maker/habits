@@ -270,7 +270,7 @@ html, body {
 .stats-empty { text-align: center; color: var(--text-hint); font-size: 13px; margin-top: 80px; }
 .stats-footer { text-align: center; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-hint); margin-top: 44px; }
 
-/* Reset button in stats */
+/* Reset progress button (per-habit) */
 .stat-reset-btn {
   width: 100%;
   margin-top: 14px;
@@ -289,6 +289,49 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .stat-reset-btn:hover { border-color: #b03020; color: #b03020; }
+
+/* Global reset all button */
+.stats-reset-all-btn {
+  width: 100%;
+  margin-top: 28px;
+  padding: 14px;
+  background: #b03020;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.14s;
+  -webkit-tap-highlight-color: transparent;
+}
+.stats-reset-all-btn:active { opacity: 0.8; }
+
+/* ─── EMPTY STATE SCREEN ─── */
+#screenEmpty {
+  display: none;
+  width: 100%; height: 100vh;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 20px;
+  background: var(--bg);
+}
+#screenEmpty.active { display: flex; }
+.empty-label {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--text-hint);
+}
+.empty-add-btn {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--dot); border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.14s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.empty-add-btn:active { transform: scale(0.92); opacity: 0.8; }
 
 /* ─── ADD / EDIT MODAL ─── */
 .modal-overlay {
@@ -348,8 +391,20 @@ html, body {
       </button>
     </div>
     <div id="statsContent"></div>
+    <button class="stats-reset-all-btn" id="resetAllBtn">Reset everything</button>
     <div class="stats-footer">less but better</div>
   </div>
+</div>
+
+<!-- EMPTY STATE -->
+<div id="screenEmpty">
+  <div class="empty-label">Add new habit</div>
+  <button class="empty-add-btn" id="emptyAddBtn">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#ECEAE7" stroke-width="1.8" stroke-linecap="round">
+      <line x1="8" y1="2" x2="8" y2="14"/>
+      <line x1="2" y1="8" x2="14" y2="8"/>
+    </svg>
+  </button>
 </div>
 
 <!-- ADD MODAL -->
@@ -763,6 +818,25 @@ function renderStats() {
   });
 }
 
+// ─── RESET ALL ───
+document.getElementById('resetAllBtn').addEventListener('click', () => {
+  if (!confirm('This will delete all habits and progress. Are you sure?')) return;
+  habits = [];
+  completed = {};
+  habitMonths = {};
+  currentHabitIndex = 0;
+  document.getElementById('screenStats').classList.remove('active');
+  document.getElementById('habitViewport').classList.remove('active');
+  document.getElementById('screenEmpty').classList.add('active');
+  buildStrip();
+});
+
+document.getElementById('emptyAddBtn').addEventListener('click', () => {
+  document.getElementById('screenEmpty').classList.remove('active');
+  document.getElementById('habitViewport').classList.add('active');
+  openAddModal();
+});
+
 // ─── ADD MODAL ───
 function openAddModal() {
   document.getElementById('habitInput').value = '';
@@ -787,6 +861,8 @@ function addHabit() {
   initHabitMonth(id);
   currentHabitIndex = habits.length - 1;
   closeAddModal();
+  document.getElementById('screenEmpty').classList.remove('active');
+  document.getElementById('habitViewport').classList.add('active');
   buildStrip();
   goTo(currentHabitIndex, false);
 }
