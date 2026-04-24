@@ -178,6 +178,11 @@ html, body {
   cursor: default;
 }
 .day-dot.future:active { transform: none; }
+.day-dot.past-empty {
+  background: transparent;
+  border: 1.5px solid var(--dot-future);
+  cursor: pointer;
+}
 .day-dot.done { background: var(--dot-done); }
 .day-dot.today {
   background: var(--dot);
@@ -641,11 +646,13 @@ function renderPage(id) {
     const cell = document.createElement('div');
     cell.className = 'day-cell';
     const dot = document.createElement('div');
+    const isPast = !isToday && !isFuture;
     const cls = ['day-dot'];
-    if (isFuture)              cls.push('future');
-    if (isToday)               cls.push('today');
-    if (isDone && !isToday)    cls.push('done');
-    if (isSelected)            cls.push('selected');
+    if (isFuture)                    cls.push('future');
+    if (isPast && !isDone)           cls.push('past-empty');
+    if (isToday)                     cls.push('today');
+    if (isDone && !isToday)          cls.push('done');
+    if (isSelected)                  cls.push('selected');
     dot.className = cls.join(' ');
 
     if (!isFuture) {
