@@ -418,7 +418,6 @@ html, body {
     </div>
     <div id="statsContent"></div>
     <button class="stats-reset-all-btn" id="resetAllBtn">Reset everything</button>
-    <div class="stats-footer">less but better</div>
   </div>
 </div>
 
@@ -456,6 +455,62 @@ html, body {
 <script>
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+
+// ─── AUDIO + HAPTICS ───
+let _actx = null;
+function getACtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+}
+function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch(e) {} }
+
+function soundPop() {
+  try {
+    const ctx = getACtx(); ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine';
+    const now = ctx.currentTime;
+    o.frequency.setValueAtTime(400, now);
+    o.frequency.exponentialRampToValueAtTime(200, now + 0.06);
+    g.gain.setValueAtTime(0.22, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    o.start(now); o.stop(now + 0.1);
+  } catch(e) {}
+}
+function soundComplete() {
+  try {
+    const ctx = getACtx(); ctx.resume();
+    const now = ctx.currentTime;
+    [[523,0],[659,0.13],[784,0.26]].forEach(([freq,delay]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = freq;
+      const t = now + delay;
+      g.gain.setValueAtTime(0.2, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.start(t); o.stop(t + 0.3);
+    });
+  } catch(e) {}
+}
+function soundUndo() {
+  try {
+    const ctx = getACtx(); ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine';
+    const now = ctx.currentTime;
+    o.frequency.setValueAtTime(330, now);
+    o.frequency.exponentialRampToValueAtTime(220, now + 0.25);
+    g.gain.setValueAtTime(0.18, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    o.start(now); o.stop(now + 0.35);
+  } catch(e) {}
+}
+function feedbackPop()      { soundPop();      vibrate(8); }
+function feedbackComplete() { soundComplete(); vibrate([0,25,10,15]); }
+function feedbackUndo()     { soundUndo();     vibrate(8); }
 
 const today = new Date(); today.setHours(0,0,0,0);
 
@@ -589,7 +644,6 @@ function buildPageHTML(h, idx) {
           <polyline points="4,11 9,16 18,6"/>
         </svg>
       </button>
-      <div class="footer-text">less but better</div>
     </div>`;
 }
 
@@ -599,6 +653,7 @@ function bindPageEvents(h, idx) {
   // Month nav
   page.querySelector('.prev-btn').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     const m = habitMonths[h.id];
     m.month--;
     if (m.month < 0) { m.month = 11; m.year--; }
@@ -607,6 +662,7 @@ function bindPageEvents(h, idx) {
   });
   page.querySelector('.next-btn').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     const m = habitMonths[h.id];
     let nm = m.month+1, ny = m.year;
     if (nm > 11) { nm = 0; ny++; }
@@ -619,18 +675,21 @@ function bindPageEvents(h, idx) {
   // Stats btn
   page.querySelector('.stats-btn-page').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     openStats();
   });
 
   // Add btn
   page.querySelector('.add-btn-page').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     openAddModal();
   });
 
   // Edit btn
   page.querySelector('.edit-btn-page').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     openEditModal(h.id);
   });
 
@@ -641,8 +700,8 @@ function bindPageEvents(h, idx) {
     const sel = m.selected;
     if (sel > today) return; // can't mark future
     const key = dateKey(sel);
-    if (completed[h.id][key]) delete completed[h.id][key];
-    else completed[h.id][key] = true;
+    if (completed[h.id][key]) { delete completed[h.id][key]; feedbackUndo(); }
+    else { completed[h.id][key] = true; feedbackComplete(); }
     saveData();
     renderPage(h.id);
   });
@@ -650,6 +709,7 @@ function bindPageEvents(h, idx) {
   // Delete btn
   page.querySelector('.del-btn-page').addEventListener('click', e => {
     e.stopPropagation();
+    feedbackPop();
     if (!confirm(`Delete "${h.name}"?`)) return;
     const i = habits.findIndex(x => x.id === h.id);
     habits.splice(i, 1);
@@ -838,6 +898,7 @@ function openStats() {
 }
 
 document.getElementById('backBtn').addEventListener('click', () => {
+  feedbackPop();
   document.getElementById('screenStats').classList.remove('active');
   document.getElementById('habitViewport').classList.add('active');
 });
@@ -910,6 +971,7 @@ document.getElementById('resetAllBtn').addEventListener('click', () => {
 });
 
 document.getElementById('emptyAddBtn').addEventListener('click', () => {
+  feedbackPop();
   document.getElementById('screenEmpty').classList.remove('active');
   document.getElementById('habitViewport').classList.add('active');
   openAddModal();
@@ -923,11 +985,11 @@ function openAddModal() {
 }
 function closeAddModal() { document.getElementById('addModal').classList.remove('open'); }
 
-document.getElementById('cancelAdd').addEventListener('click', closeAddModal);
+document.getElementById('cancelAdd').addEventListener('click', () => { feedbackPop(); closeAddModal(); });
 document.getElementById('addModal').addEventListener('click', e => {
   if (e.target === document.getElementById('addModal')) closeAddModal();
 });
-document.getElementById('confirmAdd').addEventListener('click', addHabit);
+document.getElementById('confirmAdd').addEventListener('click', () => { feedbackPop(); addHabit(); });
 document.getElementById('habitInput').addEventListener('keydown', e => { if (e.key==='Enter') addHabit(); });
 
 function addHabit() {
@@ -965,11 +1027,11 @@ function closeEditModal() {
   editingHabitId = null;
 }
 
-document.getElementById('cancelEdit').addEventListener('click', closeEditModal);
+document.getElementById('cancelEdit').addEventListener('click', () => { feedbackPop(); closeEditModal(); });
 document.getElementById('editModal').addEventListener('click', e => {
   if (e.target === document.getElementById('editModal')) closeEditModal();
 });
-document.getElementById('confirmEdit').addEventListener('click', saveEdit);
+document.getElementById('confirmEdit').addEventListener('click', () => { feedbackPop(); saveEdit(); });
 document.getElementById('editInput').addEventListener('keydown', e => { if (e.key==='Enter') saveEdit(); });
 
 function saveEdit() {
