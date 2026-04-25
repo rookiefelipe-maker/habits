@@ -462,14 +462,33 @@ const today = new Date(); today.setHours(0,0,0,0);
 function uid()     { return Math.random().toString(36).slice(2,9); }
 function dateKey(d){ return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
 
+// ─── PERSISTENCE ───
+function saveData() {
+  try { localStorage.setItem('habits_v1', JSON.stringify({ habits, completed })); } catch(e) {}
+}
+function loadData() {
+  try {
+    const raw = localStorage.getItem('habits_v1');
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p.habits)) return p;
+    }
+  } catch(e) {}
+  return null;
+}
+
 // State
-let habits = [
-  { id: uid(), name: 'Morning routine' },
-  { id: uid(), name: 'Exercise' },
-  { id: uid(), name: 'Read 30 min' },
-];
-let completed = {};
-habits.forEach(h => { completed[h.id] = {}; });
+let habits, completed;
+const _saved = loadData();
+if (_saved && _saved.habits.length > 0) {
+  habits    = _saved.habits;
+  completed = _saved.completed || {};
+  habits.forEach(h => { if (!completed[h.id]) completed[h.id] = {}; });
+} else {
+  const _a = uid(), _b = uid(), _c = uid();
+  habits    = [{ id:_a, name:'Morning routine' }, { id:_b, name:'Exercise' }, { id:_c, name:'Read 30 min' }];
+  completed = { [_a]:{}, [_b]:{}, [_c]:{} };
+}
 
 // Each habit has its own month view
 let habitMonths = {}; // {id: {year, month, selected}}
@@ -624,6 +643,7 @@ function bindPageEvents(h, idx) {
     const key = dateKey(sel);
     if (completed[h.id][key]) delete completed[h.id][key];
     else completed[h.id][key] = true;
+    saveData();
     renderPage(h.id);
   });
 
@@ -635,6 +655,7 @@ function bindPageEvents(h, idx) {
     habits.splice(i, 1);
     delete completed[h.id];
     delete habitMonths[h.id];
+    saveData();
     if (habits.length === 0) {
       currentHabitIndex = 0;
       buildStrip();
@@ -855,6 +876,7 @@ function renderStats() {
       delete completed[id];
       delete habitMonths[id];
       if (currentHabitIndex >= habits.length) currentHabitIndex = Math.max(0, habits.length-1);
+      saveData();
       buildStrip();
       renderStats();
     });
@@ -864,6 +886,7 @@ function renderStats() {
       const habit = habits.find(h => h.id === id);
       if (!confirm(`Reset all progress for "${habit.name}"?`)) return;
       completed[id] = {};
+      saveData();
       renderStats();
       renderPage(id);
     });
@@ -879,6 +902,7 @@ document.getElementById('resetAllBtn').addEventListener('click', () => {
   completed = {};
   habitMonths = {};
   currentHabitIndex = 0;
+  saveData();
   document.getElementById('screenStats').classList.remove('active');
   document.getElementById('habitViewport').classList.remove('active');
   document.getElementById('screenEmpty').classList.add('active');
@@ -914,6 +938,7 @@ function addHabit() {
   completed[id] = {};
   initHabitMonth(id);
   currentHabitIndex = habits.length - 1;
+  saveData();
   closeAddModal();
   document.getElementById('screenEmpty').classList.remove('active');
   document.getElementById('habitViewport').classList.add('active');
@@ -952,6 +977,7 @@ function saveEdit() {
   if (!val || !editingHabitId) return;
   const h = habits.find(h => h.id === editingHabitId);
   h.name = val;
+  saveData();
   // Update label on page
   const label = document.getElementById(`label-${editingHabitId}`);
   if (label) label.textContent = val;
@@ -959,6 +985,10 @@ function saveEdit() {
 }
 
 // ─── INIT ───
+if (habits.length === 0) {
+  document.getElementById('habitViewport').classList.remove('active');
+  document.getElementById('screenEmpty').classList.add('active');
+}
 buildStrip();
 
 // ─── SERVICE WORKER ───
